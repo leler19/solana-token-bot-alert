@@ -3,6 +3,19 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
 
+console.log('--- Starting Solana Token Alert Bot ---');
+console.log('TELEGRAM_BOT_TOKEN:', process.env.TELEGRAM_BOT_TOKEN ? 'SET' : 'NOT SET');
+console.log('TELEGRAM_CHAT_ID:', process.env.TELEGRAM_CHAT_ID ? 'SET' : 'NOT SET');
+console.log('PORT:', process.env.PORT || 'not set, defaulting to 3000');
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+});
+
 const app = express();
 app.use(bodyParser.json());
 
@@ -25,11 +38,14 @@ async function sendTelegramMessage(text) {
 }
 
 app.post('/webhook', async (req, res) => {
-  const data = req.body;
-  console.log('Received webhook:', JSON.stringify(data).slice(0, 200));
+  console.log('Webhook received:', JSON.stringify(req.body).slice(0, 500));
 
   try {
-    if (!data || !data.transactions) return res.status(200).send('No transactions');
+    const data = req.body;
+    if (!data || !data.transactions) {
+      console.log('No transactions found in webhook payload');
+      return res.status(200).send('No transactions');
+    }
 
     for (const tx of data.transactions) {
       if (!tx.meta) continue;
@@ -47,14 +63,10 @@ app.post('/webhook', async (req, res) => {
 
           const alertMessage = `🚨 *New Token Mint Detected!*
 
-` +
-            `*Mint Address:* \`${mintAddress}\`
-` +
-            `*Amount Minted:* \`${amount}\`
-` +
-            `*Decimals:* \`${decimals}\`
-` +
-            `Check token info on Solana explorers!`;
+*Mint Address:* \`${mintAddress}\`
+*Amount Minted:* \`${amount}\`
+*Decimals:* \`${decimals}\`
+Check token info on Solana explorers!`;
 
           await sendTelegramMessage(alertMessage);
         }
